@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: AdultEducation
+
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/adults_education?createDatabaseIfNotExist=true&serverTimezone=UTC}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+
+  output:
+    ansi:
+      enabled: always
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:YWR1bHRfbGVhcm5pbmdfc2VjcmV0X2tleV9mb3JfY291cnNlX3Byb2plY3RfMjAyNQ==}
+    expiration-ms: 86400000
+
+  uploads:
+    directory: ${UPLOADS_DIR:./uploads}
+    base-url: ${UPLOADS_BASE_URL:http://localhost:8080/uploads}
+    max-size-bytes: 104857600
+    allowed-content-types:
+      - image/jpeg
+      - image/png
+      - image/webp
+
+logging:
+  level:
+    root: INFO
+    com.wairixx.AdultsEducation: DEBUG
+  pattern:
+    console: "%clr(%d{yyyy-MM-dd HH:mm:ss}){faint} %clr([%thread]){magenta} %clr(%-5level) %clr(%logger{36}){cyan} - %msg%n"
+  file:
+    name: logs/app.log
