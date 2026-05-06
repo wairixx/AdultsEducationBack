@@ -11,6 +11,8 @@ import com.wairixx.AdultsEducation.model.entity.TeacherProfile;
 import com.wairixx.AdultsEducation.model.entity.User;
 import com.wairixx.AdultsEducation.model.enums.Role;
 import com.wairixx.AdultsEducation.repository.CourseRepository;
+import com.wairixx.AdultsEducation.repository.LessonCompletionRepository;
+import com.wairixx.AdultsEducation.repository.LessonRepository;
 import com.wairixx.AdultsEducation.repository.TeacherProfileRepository;
 import com.wairixx.AdultsEducation.repository.specification.CourseSpecification;
 import com.wairixx.AdultsEducation.service.CourseService;
@@ -28,6 +30,8 @@ public class CourseServiceImpl implements CourseService {
 
     private final CourseRepository courseRepository;
     private final TeacherProfileRepository teacherProfileRepository;
+    private final LessonRepository lessonRepository;
+    private final LessonCompletionRepository lessonCompletionRepository;
 
     @Override
     @Transactional
@@ -108,6 +112,11 @@ public class CourseServiceImpl implements CourseService {
         Course c = courseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("error.course.not.found"));
         ensureCanModify(c);
+
+        // Explicit cascade cleanup for course lessons.
+        lessonCompletionRepository.deleteByLessonCourseId(id);
+        lessonRepository.deleteByCourseId(id);
+
         courseRepository.delete(c);
     }
 

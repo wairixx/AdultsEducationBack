@@ -21,6 +21,7 @@ const form = reactive({
   firstName: '',
   lastName: '',
   phone: '',
+  birthDate: '',
   role: 'STUDENT' as Role,
 })
 
@@ -29,6 +30,7 @@ const errors = reactive({
   password: '',
   firstName: '',
   lastName: '',
+  birthDate: '',
 })
 
 const apiError = ref('')
@@ -48,6 +50,7 @@ function validate(): boolean {
   errors.password = ''
   errors.firstName = ''
   errors.lastName = ''
+  errors.birthDate = ''
 
   if (!form.email.trim()) {
     errors.email = t('validation.required')
@@ -84,6 +87,27 @@ function validate(): boolean {
     valid = false
   }
 
+  if (!form.birthDate) {
+    errors.birthDate = t('validation.required')
+    valid = false
+  } else {
+    const birthDate = new Date(`${form.birthDate}T00:00:00`)
+    const today = new Date()
+    if (birthDate > today) {
+      errors.birthDate = t('validation.birthDateFuture')
+      valid = false
+    } else {
+      let age = today.getFullYear() - birthDate.getFullYear()
+      const monthDiff = today.getMonth() - birthDate.getMonth()
+      const dayDiff = today.getDate() - birthDate.getDate()
+      if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) age -= 1
+      if (age < 18) {
+        errors.birthDate = t('validation.birthDateAdult')
+        valid = false
+      }
+    }
+  }
+
   return valid
 }
 
@@ -99,6 +123,7 @@ async function onSubmit() {
       firstName: form.firstName,
       lastName: form.lastName,
       phone: form.phone || undefined,
+      birthDate: form.birthDate,
       role: form.role,
     })
     router.push('/')
@@ -228,6 +253,15 @@ async function onSubmit() {
               type="tel"
               placeholder="+380..."
               icon="mdi:phone-outline"
+            />
+
+            <AppInput
+              v-model="form.birthDate"
+              :label="t('form.birthDate')"
+              type="date"
+              icon="mdi:calendar-outline"
+              :error="errors.birthDate"
+              required
             />
 
             <!-- Avatar hint -->

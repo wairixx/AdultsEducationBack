@@ -36,6 +36,7 @@ export interface RegisterRequest {
   lastName: string
   phone?: string
   avatarUrl?: string
+  birthDate: string
   role?: Role
 }
 
@@ -60,6 +61,7 @@ export interface UserResponse {
   phone?: string
   bio?: string
   avatarUrl?: string
+  birthDate?: string
   specialization?: string
   experienceYears?: number
   createdAt: string
@@ -71,6 +73,7 @@ export interface UpdateMeRequest {
   phone?: string
   bio?: string
   avatarUrl?: string
+  birthDate?: string
   specialization?: string
   experienceYears?: number
 }

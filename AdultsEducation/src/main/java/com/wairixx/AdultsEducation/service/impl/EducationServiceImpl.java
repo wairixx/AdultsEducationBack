@@ -118,7 +118,13 @@ public class EducationServiceImpl implements EducationService {
                 .orElseThrow(() -> new ResourceNotFoundException("error.education.not.found"));
         ensureTeacherOfCourse(e);
 
-        if (r.status() != null) e.setStatus(r.status());
+        if (r.status() != null) {
+            if (r.status() == EducationStatus.COMPLETED && e.getStatus() != EducationStatus.COMPLETED) {
+                autoComplete(e);
+            } else {
+                e.setStatus(r.status());
+            }
+        }
         if (r.level() != null) e.setLevel(r.level());
         if (r.note() != null) e.setNote(r.note());
         return e;
@@ -191,6 +197,7 @@ public class EducationServiceImpl implements EducationService {
 
     private void autoComplete(Education e) {
         e.setStatus(EducationStatus.COMPLETED);
+        e.setProgress(100);
         e.setIssueDate(LocalDate.now());
         e.setLevel(resolveLevel(e.getCourse().getDurationHours()));
         certificateService.issueCertificate(e);

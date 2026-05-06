@@ -1,11 +1,16 @@
 package com.wairixx.AdultsEducation.service.impl;
 
 import com.wairixx.AdultsEducation.aspect.Loggable;
+import com.wairixx.AdultsEducation.exception.BusinessException;
 import com.wairixx.AdultsEducation.exception.DuplicateResourceException;
 import com.wairixx.AdultsEducation.exception.ResourceNotFoundException;
 import com.wairixx.AdultsEducation.model.dto.user.UpdateUserRequest;
 import com.wairixx.AdultsEducation.model.dto.user.UserFilter;
+import com.wairixx.AdultsEducation.model.entity.AbstractProfile;
+import com.wairixx.AdultsEducation.model.entity.StudentProfile;
+import com.wairixx.AdultsEducation.model.entity.TeacherProfile;
 import com.wairixx.AdultsEducation.model.entity.User;
+import com.wairixx.AdultsEducation.model.enums.Role;
 import com.wairixx.AdultsEducation.repository.StudentProfileRepository;
 import com.wairixx.AdultsEducation.repository.TeacherProfileRepository;
 import com.wairixx.AdultsEducation.repository.UserRepository;
@@ -16,6 +21,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.Period;
 
 @Service
 @RequiredArgsConstructor
@@ -44,6 +52,12 @@ public class UserServiceImpl implements UserService {
     public User update(Long id, UpdateUserRequest r) {
         User u = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("error.user.not.found"));
+        Role originalRole = u.getRole();
+
+        StudentProfile existingStudentProfile = studentProfileRepository.findById(id).orElse(null);
+        TeacherProfile existingTeacherProfile = teacherProfileRepository.findById(id).orElse(null);
+        Role targetRole = r.role() != null ? r.role() : u.getRole();
+        boolean roleChanged = targetRole != originalRole;
 
         if (r.email() != null && !r.email().equals(u.getEmail())) {
             if (userRepository.existsByEmail(r.email()))
@@ -53,24 +67,103 @@ public class UserServiceImpl implements UserService {
         if (r.role() != null) u.setRole(r.role());
         if (r.active() != null) u.setActive(r.active());
 
-        // оновлюємо поля у відповідному профілі
-        studentProfileRepository.findById(id).ifPresent(p -> {
-            if (r.firstName() != null) p.setFirstName(r.firstName());
-            if (r.lastName() != null)  p.setLastName(r.lastName());
-            if (r.phone() != null)     p.setPhone(r.phone());
-            if (r.bio() != null)       p.setBio(r.bio());
-            if (r.avatarUrl() != null) p.setAvatarUrl(r.avatarUrl());
-        });
-        teacherProfileRepository.findById(id).ifPresent(p -> {
-            if (r.firstName() != null)       p.setFirstName(r.firstName());
-            if (r.lastName() != null)        p.setLastName(r.lastName());
-            if (r.phone() != null)           p.setPhone(r.phone());
-            if (r.bio() != null)             p.setBio(r.bio());
-            if (r.avatarUrl() != null)       p.setAvatarUrl(r.avatarUrl());
-            if (r.specialization() != null)  p.setSpecialization(r.specialization());
-            if (r.experienceYears() != null) p.setExperienceYears(r.experienceYears());
-        });
+        if (targetRole == Role.STUDENT) {
+            AbstractProfile sourceProfile = roleChanged && originalRole == Role.TEACHER
+                    ? existingTeacherProfile
+                    : existingStudentProfile;
+            upsertStudentProfile(u, r, existingStudentProfile, sourceProfile);
+            if (existingTeacherProfile != null) {
+                teacherProfileRepository.delete(existingTeacherProfile);
+            }
+        } else if (targetRole == Role.TEACHER) {
+            AbstractProfile sourceProfile = roleChanged && originalRole == Role.STUDENT
+                    ? existingStudentProfile
+                    : existingTeacherProfile;
+            upsertTeacherProfile(u, r, existingTeacherProfile, sourceProfile);
+            if (existingStudentProfile != null) {
+                studentProfileRepository.delete(existingStudentProfile);
+            }
+        } else {
+            if (existingStudentProfile != null) studentProfileRepository.delete(existingStudentProfile);
+            if (existingTeacherProfile != null) teacherProfileRepository.delete(existingTeacherProfile);
+        }
         return u;
+    }
+
+    private void upsertStudentProfile(
+            User user,
+            UpdateUserRequest request,
+            StudentProfile existingStudentProfile,
+            AbstractProfile sourceProfile
+    ) {
+        StudentProfile profile = existingStudentProfile != null ? existingStudentProfile : new StudentProfile();
+        profile.setUser(user);
+        applyCommonFields(profile, request, sourceProfile);
+        studentProfileRepository.save(profile);
+    }
+
+    private void upsertTeacherProfile(
+            User user,
+            UpdateUserRequest request,
+            TeacherProfile existingTeacherProfile,
+            AbstractProfile sourceProfile
+    ) {
+        TeacherProfile profile = existingTeacherProfile != null ? existingTeacherProfile : new TeacherProfile();
+        profile.setUser(user);
+        applyCommonFields(profile, request, sourceProfile);
+
+        if (request.specialization() != null) {
+            profile.setSpecialization(request.specialization());
+        }
+        Double targetExperience = request.experienceYears() != null ? request.experienceYears() : profile.getExperienceYears();
+        validateTeacherExperience(profile.getBirthDate(), targetExperience);
+        if (request.experienceYears() != null) {
+            profile.setExperienceYears(request.experienceYears());
+        }
+        teacherProfileRepository.save(profile);
+    }
+
+    private void applyCommonFields(AbstractProfile target, UpdateUserRequest request, AbstractProfile source) {
+        String firstName = request.firstName() != null
+                ? request.firstName()
+                : (source != null ? source.getFirstName() : target.getFirstName());
+        String lastName = request.lastName() != null
+                ? request.lastName()
+                : (source != null ? source.getLastName() : target.getLastName());
+
+        if (firstName == null || firstName.isBlank()) {
+            throw new BusinessException("error.user.firstname.blank");
+        }
+        if (lastName == null || lastName.isBlank()) {
+            throw new BusinessException("error.user.lastname.blank");
+        }
+
+        target.setFirstName(firstName);
+        target.setLastName(lastName);
+
+        if (request.phone() != null) {
+            target.setPhone(request.phone());
+        } else if (source != null && target.getPhone() == null) {
+            target.setPhone(source.getPhone());
+        }
+
+        if (request.bio() != null) {
+            target.setBio(request.bio());
+        } else if (source != null && target.getBio() == null) {
+            target.setBio(source.getBio());
+        }
+
+        if (request.avatarUrl() != null) {
+            target.setAvatarUrl(request.avatarUrl());
+        } else if (source != null && target.getAvatarUrl() == null) {
+            target.setAvatarUrl(source.getAvatarUrl());
+        }
+
+        LocalDate birthDate = request.birthDate() != null
+                ? request.birthDate()
+                : (source != null ? source.getBirthDate() : target.getBirthDate());
+        validateAdult(birthDate);
+        target.setBirthDate(birthDate);
     }
 
     @Override
@@ -89,5 +182,25 @@ public class UserServiceImpl implements UserService {
         }
 
         userRepository.deleteById(id);
+    }
+
+    private void validateAdult(LocalDate birthDate) {
+        if (birthDate == null) {
+            throw new BusinessException("error.user.birthdate.required");
+        }
+        if (birthDate.isAfter(LocalDate.now())) {
+            throw new BusinessException("error.user.birthdate.future");
+        }
+        if (Period.between(birthDate, LocalDate.now()).getYears() < 18) {
+            throw new BusinessException("error.user.birthdate.age.min");
+        }
+    }
+
+    private void validateTeacherExperience(LocalDate birthDate, Double experienceYears) {
+        if (experienceYears == null) return;
+        int age = Period.between(birthDate, LocalDate.now()).getYears();
+        if (experienceYears > age) {
+            throw new BusinessException("error.teacher.experience.exceeds.age");
+        }
     }
 }

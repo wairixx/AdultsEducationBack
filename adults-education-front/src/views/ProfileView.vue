@@ -23,6 +23,7 @@ const profileForm = reactive({
   phone: '',
   bio: '',
   avatarUrl: '',
+  birthDate: '',
   specialization: '',
   experienceYears: undefined as number | undefined,
 })
@@ -41,6 +42,17 @@ const userInitials = computed(() => {
   return (f + l).toUpperCase() || '?'
 })
 
+const profileAge = computed(() => {
+  if (!profileForm.birthDate) return null
+  const birthDate = new Date(`${profileForm.birthDate}T00:00:00`)
+  const today = new Date()
+  let age = today.getFullYear() - birthDate.getFullYear()
+  const monthDiff = today.getMonth() - birthDate.getMonth()
+  const dayDiff = today.getDate() - birthDate.getDate()
+  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) age -= 1
+  return age
+})
+
 function mapProfileErrorMessage(rawMessage: string) {
   if (
     rawMessage.includes('experienceYears.jakarta.validation.constraints.PositiveOrZero.message') ||
@@ -48,6 +60,11 @@ function mapProfileErrorMessage(rawMessage: string) {
   ) {
     return t('validation.experienceYearsPositiveOrZero')
   }
+  if (rawMessage.includes('error.user.birthdate.required')) return t('validation.required')
+  if (rawMessage.includes('error.user.birthdate.future')) return t('validation.birthDateFuture')
+  if (rawMessage.includes('error.user.birthdate.age.min')) return t('validation.birthDateAdult')
+  if (rawMessage.includes('error.teacher.experience.exceeds.age'))
+    return t('validation.experienceYearsLessOrEqualAge')
 
   return rawMessage
 }
@@ -59,6 +76,7 @@ function loadProfile() {
   profileForm.phone = auth.user.phone || ''
   profileForm.bio = auth.user.bio || ''
   profileForm.avatarUrl = auth.user.avatarUrl || ''
+  profileForm.birthDate = auth.user.birthDate || ''
   profileForm.specialization = auth.user.specialization || ''
   profileForm.experienceYears = auth.user.experienceYears
   originalProfile.value = JSON.stringify(profileForm)
@@ -69,12 +87,35 @@ watch(() => auth.user, loadProfile)
 
 async function saveProfile() {
   profileError.value = ''
+  if (!profileForm.birthDate) {
+    profileError.value = t('validation.required')
+    return
+  }
+  const birthDate = new Date(`${profileForm.birthDate}T00:00:00`)
+  const today = new Date()
+  if (birthDate > today) {
+    profileError.value = t('validation.birthDateFuture')
+    return
+  }
+  if ((profileAge.value ?? 0) < 18) {
+    profileError.value = t('validation.birthDateAdult')
+    return
+  }
   if (
     typeof profileForm.experienceYears === 'number' &&
     Number.isFinite(profileForm.experienceYears) &&
     profileForm.experienceYears < 0
   ) {
     profileError.value = t('validation.experienceYearsPositiveOrZero')
+    return
+  }
+  if (
+    auth.isTeacher &&
+    typeof profileForm.experienceYears === 'number' &&
+    profileAge.value !== null &&
+    profileForm.experienceYears > profileAge.value
+  ) {
+    profileError.value = t('validation.experienceYearsLessOrEqualAge')
     return
   }
   profileLoading.value = true
@@ -86,6 +127,7 @@ async function saveProfile() {
       bio: profileForm.bio || undefined,
       // Keep empty string when avatar is removed so backend persists clearing.
       avatarUrl: profileForm.avatarUrl,
+      birthDate: profileForm.birthDate || undefined,
       specialization: profileForm.specialization || undefined,
       experienceYears: profileForm.experienceYears,
     })
@@ -183,6 +225,12 @@ async function savePassword() {
                 {{ auth.user?.fullName || '—' }}
               </h2>
               <p class="text-sm text-slate-500">{{ auth.user?.email }}</p>
+              <p v-if="profileForm.birthDate" class="mt-3 text-xs text-slate-500">
+                {{ t('profile.birthDateLabel') }}: {{ new Date(profileForm.birthDate).toLocaleDateString() }}
+              </p>
+              <p v-if="profileAge !== null" class="mt-1 text-xs text-slate-500">
+                {{ t('profile.ageLabel') }}: {{ profileAge }}
+              </p>
 
               <span
                 class="mt-3 inline-flex items-center rounded-full px-3 py-1 text-xs font-medium"
@@ -243,6 +291,14 @@ async function savePassword() {
                 type="tel"
                 icon="mdi:phone-outline"
                 placeholder="+380..."
+              />
+
+              <AppInput
+                v-model="profileForm.birthDate"
+                :label="t('form.birthDate')"
+                type="date"
+                icon="mdi:calendar-outline"
+                required
               />
 
               <div>

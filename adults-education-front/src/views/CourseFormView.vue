@@ -105,6 +105,10 @@ async function handleImageUpload(e: Event) {
   }
 }
 
+function removeCover() {
+  form.value.coverUrl = ''
+}
+
 async function submit() {
   submitting.value = true
   try {
@@ -159,6 +163,15 @@ async function submit() {
               <span v-else class="flex items-center"><Icon icon="mdi:upload" class="mr-2 h-5 w-5" /> Завантажити фото</span>
               <input type="file" class="hidden" accept="image/*" @change="handleImageUpload" :disabled="imageUploading" />
             </label>
+            <button
+              v-if="form.coverUrl"
+              type="button"
+              class="absolute right-3 top-3 inline-flex items-center rounded-lg bg-rose-500/90 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-rose-600"
+              @click="removeCover"
+            >
+              <Icon icon="mdi:delete-outline" class="mr-1 h-4 w-4" />
+              {{ t('actions.delete') }}
+            </button>
           </div>
 
           <div class="p-6 space-y-6">

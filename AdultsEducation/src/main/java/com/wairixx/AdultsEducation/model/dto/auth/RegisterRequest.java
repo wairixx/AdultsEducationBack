@@ -2,6 +2,7 @@ package com.wairixx.AdultsEducation.model.dto.auth;
 
 import com.wairixx.AdultsEducation.model.enums.Role;
 import jakarta.validation.constraints.*;
+import java.time.LocalDate;
 
 public record RegisterRequest(
         @NotBlank(message = "{error.user.email.blank}")
@@ -16,4 +17,6 @@ public record RegisterRequest(
         @Size(max = 50) String lastName,
         @Size(max = 20) String phone,
         @Size(max = 500) String avatarUrl,
+        @NotNull(message = "{error.user.birthdate.required}")
+        LocalDate birthDate,
         Role role) {}

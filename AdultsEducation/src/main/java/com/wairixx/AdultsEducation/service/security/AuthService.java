@@ -22,6 +22,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.Period;
+
 @Service
 @RequiredArgsConstructor
 @Loggable(logArgs = false)
@@ -46,6 +49,7 @@ public class AuthService {
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email()))
             throw new DuplicateResourceException("error.user.duplicate.email");
+        validateAdult(request.birthDate());
 
         Role role = request.role() == null ? Role.STUDENT : request.role();
         if (role == Role.ADMIN)
@@ -65,6 +69,7 @@ public class AuthService {
             p.setLastName(request.lastName());
             p.setPhone(request.phone());
             p.setAvatarUrl(request.avatarUrl());
+            p.setBirthDate(request.birthDate());
             studentProfileRepository.save(p);
         } else {
             TeacherProfile p = new TeacherProfile();
@@ -73,6 +78,7 @@ public class AuthService {
             p.setLastName(request.lastName());
             p.setPhone(request.phone());
             p.setAvatarUrl(request.avatarUrl());
+            p.setBirthDate(request.birthDate());
             teacherProfileRepository.save(p);
         }
 
@@ -92,5 +98,17 @@ public class AuthService {
                 jwtService.generateToken(user),
                 user.getEmail(), user.getRole().name(), user.getId(),
                 first, last);
+    }
+
+    private void validateAdult(LocalDate birthDate) {
+        if (birthDate == null) {
+            throw new BusinessException("error.user.birthdate.required");
+        }
+        if (birthDate.isAfter(LocalDate.now())) {
+            throw new BusinessException("error.user.birthdate.future");
+        }
+        if (Period.between(birthDate, LocalDate.now()).getYears() < 18) {
+            throw new BusinessException("error.user.birthdate.age.min");
+        }
     }
 }

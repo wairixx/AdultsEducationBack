@@ -119,9 +119,14 @@ const createForm = ref<RegisterRequest>({
   firstName: '',
   lastName: '',
   phone: '',
+  birthDate: '',
   role: 'STUDENT',
 })
 const createRole = ref('STUDENT')
+const createTeacherForm = ref({
+  specialization: '',
+  experienceYears: undefined as number | undefined,
+})
 
 function openCreate() {
   createForm.value = {
@@ -130,18 +135,29 @@ function openCreate() {
     firstName: '',
     lastName: '',
     phone: '',
+    birthDate: '',
   }
   createRole.value = 'STUDENT'
+  createTeacherForm.value = {
+    specialization: '',
+    experienceYears: undefined,
+  }
   createModalOpen.value = true
 }
 
 async function saveCreate() {
   createSaving.value = true
   try {
-    await register({
+    const authResponse = await register({
       ...createForm.value,
       role: createRole.value as Role,
     })
+    if (createRole.value === 'TEACHER') {
+      await updateUser(authResponse.userId, {
+        specialization: createTeacherForm.value.specialization || undefined,
+        experienceYears: createTeacherForm.value.experienceYears,
+      })
+    }
     toast.success(t('admin.users.successCreate'))
     createModalOpen.value = false
     loadData()
@@ -168,6 +184,7 @@ function openEdit(user: UserResponse) {
     lastName: user.lastName ?? '',
     phone: user.phone ?? '',
     bio: user.bio ?? '',
+    birthDate: user.birthDate ?? '',
     specialization: user.specialization ?? '',
     experienceYears: user.experienceYears ?? undefined,
   }
@@ -185,9 +202,14 @@ async function saveEdit() {
       role: editRole.value as Role,
       active: editActive.value === 'true',
     }
+    if (editRole.value !== 'TEACHER') {
+      payload.specialization = undefined
+      payload.experienceYears = undefined
+    }
     const res = await updateUser(editingUser.value.id, payload)
     const idx = users.value.findIndex((u) => u.id === res.id)
     if (idx !== -1) users.value[idx] = res
+    await loadData()
     toast.success(t('admin.users.successUpdate'))
     editModalOpen.value = false
   } catch {
@@ -400,11 +422,29 @@ function roleBadgeClass(role: Role) {
           required
         />
         <AppInput v-model="createForm.phone" :label="t('form.phone')" />
+        <AppInput
+          v-model="createForm.birthDate"
+          :label="t('form.birthDate')"
+          type="date"
+          required
+        />
         <SelectField
           v-model="createRole"
           :label="t('admin.users.role')"
           :options="roleCreateOptions"
         />
+        <div v-if="createRole === 'TEACHER'" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <AppInput
+            v-model="createTeacherForm.specialization"
+            :label="t('form.specialization')"
+          />
+          <AppInput
+            v-model="createTeacherForm.experienceYears"
+            :label="t('form.experienceYears')"
+            type="number"
+            :min="0"
+          />
+        </div>
         <p class="text-xs text-slate-400">
           {{ t('admin.users.createHint') }}
         </p>
@@ -432,6 +472,11 @@ function roleBadgeClass(role: Role) {
         </div>
         <AppInput v-model="editForm.email" :label="t('form.email')" type="email" />
         <AppInput v-model="editForm.phone" :label="t('form.phone')" />
+        <AppInput
+          v-model="editForm.birthDate"
+          :label="t('form.birthDate')"
+          type="date"
+        />
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <SelectField
             v-model="editRole"
@@ -456,7 +501,7 @@ function roleBadgeClass(role: Role) {
             :placeholder="t('profile.bioPlaceholder')"
           ></textarea>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div v-if="editRole === 'TEACHER'" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <AppInput v-model="editForm.specialization" :label="t('form.specialization')" />
           <AppInput
             v-model="editForm.experienceYears"

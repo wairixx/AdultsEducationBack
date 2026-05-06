@@ -58,6 +58,17 @@ function formatPrice(price: number): string {
   if (price === 0) return t('course.free')
   return `${price.toLocaleString()} ${t('course.price')}`
 }
+
+function getAge(birthDate?: string): number | null {
+  if (!birthDate) return null
+  const birth = new Date(`${birthDate}T00:00:00`)
+  const today = new Date()
+  let age = today.getFullYear() - birth.getFullYear()
+  const monthDiff = today.getMonth() - birth.getMonth()
+  const dayDiff = today.getDate() - birth.getDate()
+  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) age -= 1
+  return age
+}
 </script>
 
 <template>
@@ -106,6 +117,14 @@ function formatPrice(price: number): string {
                 <span v-if="teacher.experienceYears" class="flex items-center gap-1.5">
                   <Icon icon="mdi:briefcase-outline" class="h-4 w-4" />
                   {{ teacher.experienceYears }} {{ t('teacherProfile.yearsExp') }}
+                </span>
+                <span v-if="teacher.birthDate" class="flex items-center gap-1.5">
+                  <Icon icon="mdi:calendar-outline" class="h-4 w-4" />
+                  {{ new Date(teacher.birthDate).toLocaleDateString() }}
+                </span>
+                <span v-if="getAge(teacher.birthDate) !== null" class="flex items-center gap-1.5">
+                  <Icon icon="mdi:account-clock-outline" class="h-4 w-4" />
+                  {{ getAge(teacher.birthDate) }} {{ t('teacherProfile.yearsOld') }}
                 </span>
                 <span class="flex items-center gap-1.5">
                   <Icon icon="mdi:book-open-variant" class="h-4 w-4" />

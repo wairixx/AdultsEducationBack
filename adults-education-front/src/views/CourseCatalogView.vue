@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Icon } from '@iconify/vue'
 import DefaultLayout from '@/components/layout/DefaultLayout.vue'
@@ -31,26 +31,44 @@ const filters = reactive({
 const courses = ref<CourseResponse[]>([])
 const loading = ref(true)
 const isMobileFiltersOpen = ref(false)
+const isRatingSort = computed(() => sort.value === 'averageRating,desc')
 
 async function loadData() {
   loading.value = true
   try {
-    const res = await getAllCourses(
-      {
-        title: filters.title || undefined,
-        topic: filters.topic ? (filters.topic as any) : undefined,
-        format: filters.format ? (filters.format as any) : undefined,
-        minPrice: filters.minPrice,
-        maxPrice: filters.maxPrice,
-        minHours: filters.minHours,
-        maxHours: filters.maxHours,
-      },
-      page.value,
-      size.value,
-      sort.value
-    )
-    courses.value = res.content
-    setTotal(res.totalElements, res.totalPages)
+    const apiFilter = {
+      title: filters.title || undefined,
+      topic: filters.topic ? (filters.topic as any) : undefined,
+      format: filters.format ? (filters.format as any) : undefined,
+      minPrice: filters.minPrice,
+      maxPrice: filters.maxPrice,
+      minHours: filters.minHours,
+      maxHours: filters.maxHours,
+    }
+
+    // Backend paging by computed rating field is unreliable,
+    // so for "sort by rating" we sort and paginate on client side.
+    if (isRatingSort.value) {
+      const res = await getAllCourses(apiFilter, 0, 1000, 'id,desc')
+      const sorted = [...res.content].sort((a, b) => {
+        if (b.averageRating !== a.averageRating) return b.averageRating - a.averageRating
+        return b.id - a.id
+      })
+      const start = page.value * size.value
+      const end = start + size.value
+      courses.value = sorted.slice(start, end)
+      const total = sorted.length
+      setTotal(total, Math.ceil(total / size.value))
+    } else {
+      const res = await getAllCourses(
+        apiFilter,
+        page.value,
+        size.value,
+        sort.value
+      )
+      courses.value = res.content
+      setTotal(res.totalElements, res.totalPages)
+    }
   } catch {
     console.error('An error occurred')
   } finally {

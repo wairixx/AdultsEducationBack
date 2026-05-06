@@ -28,6 +28,7 @@ public class UserMapper {
                     t == null ? null : t.getPhone(),
                     t == null ? null : t.getBio(),
                     t == null ? null : t.getAvatarUrl(),
+                    t == null ? null : t.getBirthDate(),
                     t == null ? null : t.getSpecialization(),
                     t == null ? null : t.getExperienceYears(),
                     u.getCreatedAt());
@@ -43,11 +44,12 @@ public class UserMapper {
                     s == null ? null : s.getPhone(),
                     s == null ? null : s.getBio(),
                     s == null ? null : s.getAvatarUrl(),
+                    s == null ? null : s.getBirthDate(),
                     null, null,
                     u.getCreatedAt());
         }
 
         return new UserResponse(u.getId(), u.getEmail(), u.getRole(), u.getActive(),
-                null, null, null, null, null, null, null, null, u.getCreatedAt());
+                null, null, null, null, null, null, null, null, null, u.getCreatedAt());
     }
 }

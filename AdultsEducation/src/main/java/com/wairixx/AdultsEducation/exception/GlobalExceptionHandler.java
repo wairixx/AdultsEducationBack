@@ -65,6 +65,11 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.UNAUTHORIZED, "Unauthorized", messages.get("error.auth.bad.credentials"));
     }
 
+    @ExceptionHandler(org.springframework.security.authentication.DisabledException.class)
+    public ResponseEntity<ErrorResponse> handleDisabled(Exception ex) {
+        return build(HttpStatus.FORBIDDEN, "Forbidden", messages.get("error.auth.user.disabled"));
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
         return build(HttpStatus.FORBIDDEN, "Forbidden", messages.get("error.auth.access.denied"));
