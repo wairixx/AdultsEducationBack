@@ -25,15 +25,15 @@ const totalElements = ref(0)
 
 // Filters
 const filterSearch = ref('')
-const filterMinRating = ref<string>('')
+const filterRating = ref<string>('')
 const filterVisibility = ref<'visible' | 'hidden' | ''>('')
 
 const ratingOptions = [
   { value: '', label: t('filters.all') },
-  { value: '1', label: '★ 1+' },
-  { value: '2', label: '★★ 2+' },
-  { value: '3', label: '★★★ 3+' },
-  { value: '4', label: '★★★★ 4+' },
+  { value: '1', label: '★ 1' },
+  { value: '2', label: '★★ 2' },
+  { value: '3', label: '★★★ 3' },
+  { value: '4', label: '★★★★ 4' },
   { value: '5', label: '★★★★★ 5' },
 ]
 
@@ -93,7 +93,8 @@ async function loadData() {
   try {
     const res = await getAllReviewsForAdmin(
       {
-        minRating: filterMinRating.value ? Number(filterMinRating.value) : undefined,
+        minRating: filterRating.value ? Number(filterRating.value) : undefined,
+        maxRating: filterRating.value ? Number(filterRating.value) : undefined,
       },
       page.value,
       10,
@@ -114,6 +115,10 @@ async function loadData() {
     } else if (filterVisibility.value === 'hidden') {
       data = data.filter((r) => !r.visible)
     }
+    if (filterRating.value) {
+      const rating = Number(filterRating.value)
+      data = data.filter((r) => r.rating === rating)
+    }
     reviews.value = data
     totalPages.value = res.totalPages
     totalElements.value = res.totalElements
@@ -129,7 +134,7 @@ onMounted(() => {
   loadData()
 })
 
-watch([filterSearch, filterMinRating, filterVisibility], () => {
+watch([filterSearch, filterRating, filterVisibility], () => {
   page.value = 0
   loadData()
 })
@@ -239,7 +244,7 @@ function renderStars(rating: number) {
           :placeholder="t('admin.reviews.searchPlaceholder')"
           class="w-full sm:w-72"
         />
-        <SelectField v-model="filterMinRating" :options="ratingOptions" class="w-full sm:w-40" />
+        <SelectField v-model="filterRating" :options="ratingOptions" class="w-full sm:w-40" />
         <SelectField
           v-model="filterVisibility"
           :options="visibilityOptions"

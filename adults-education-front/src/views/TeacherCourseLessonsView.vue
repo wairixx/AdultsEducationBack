@@ -7,6 +7,7 @@ import { toast } from 'vue-sonner'
 import DefaultLayout from '@/components/layout/DefaultLayout.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
+import { useAuthStore } from '@/stores/auth'
 import { getCourseById } from '@/api/courses'
 import { getLessonsFull, createLesson, updateLesson, deleteLesson } from '@/api/lessons'
 import type { CourseResponse, LessonResponse, LessonRequest } from '@/types/api'
@@ -14,6 +15,7 @@ import type { CourseResponse, LessonResponse, LessonRequest } from '@/types/api'
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const auth = useAuthStore()
 
 const courseId = Number(route.params.id)
 const course = ref<CourseResponse | null>(null)
@@ -33,6 +35,14 @@ const form = ref<LessonRequest>({
   orderNumber: 1
 })
 
+function goBackToCourses() {
+  if (auth.isAdmin) {
+    router.push('/admin/courses')
+    return
+  }
+  router.push('/dashboard')
+}
+
 async function loadData() {
   loading.value = true
   try {
@@ -43,7 +53,7 @@ async function loadData() {
     course.value = cRes
     lessons.value = lRes.sort((a, b) => a.orderNumber - b.orderNumber)
   } catch {
-    router.replace('/dashboard')
+    goBackToCourses()
   } finally {
     loading.value = false
   }
@@ -115,7 +125,7 @@ async function handleDelete(id: number) {
         
         <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <button @click="router.push('/dashboard')" class="inline-flex items-center text-sm font-medium text-slate-500 hover:text-amber-600 mb-2 transition-colors">
+            <button @click="goBackToCourses" class="inline-flex items-center text-sm font-medium text-slate-500 hover:text-amber-600 mb-2 transition-colors">
               <Icon icon="mdi:arrow-left" class="mr-1 h-4 w-4" />
               Назад до курсів
             </button>
