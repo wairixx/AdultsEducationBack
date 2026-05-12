@@ -3,6 +3,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Icon } from '@iconify/vue'
 import { toast } from 'vue-sonner'
+import axios from 'axios'
 import DataTable from '@/components/admin/DataTable.vue'
 import ConfirmDialog from '@/components/admin/ConfirmDialog.vue'
 import EditModal from '@/components/admin/EditModal.vue'
@@ -23,6 +24,7 @@ import type {
   CourseResponse,
   UserResponse,
   PaymentMethod,
+  ApiError,
 } from '@/types/api'
 
 const { t } = useI18n()
@@ -158,16 +160,19 @@ const createCourseId = ref<string>('')
 const createStudentId = ref<string>('')
 const createPaymentMethod = ref<string>('FREE')
 const createTransactionRef = ref('')
+const createApiError = ref('')
 
 function openCreate() {
   createCourseId.value = courseOptions.value.length > 0 ? String(courseOptions.value[0]?.value) : ''
   createStudentId.value = studentOptions.value.length > 0 ? String(studentOptions.value[0]?.value) : ''
   createPaymentMethod.value = 'FREE'
   createTransactionRef.value = ''
+  createApiError.value = ''
   createModalOpen.value = true
 }
 
 async function saveCreate() {
+  createApiError.value = ''
   if (!createCourseId.value) {
     toast.error(t('admin.enrollments.selectCourseRequired'))
     return
@@ -179,12 +184,16 @@ async function saveCreate() {
       paymentMethod: createPaymentMethod.value as PaymentMethod,
       transactionRef: createTransactionRef.value || undefined,
       studentId: createStudentId.value ? Number(createStudentId.value) : undefined,
-    })
+    }, { skipToast: true })
     toast.success(t('admin.enrollments.successCreate'))
     createModalOpen.value = false
     loadData()
-  } catch {
-    /* handled by interceptor */
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.data) {
+      createApiError.value = (err.response.data as ApiError).message || t('errors.generic')
+    } else {
+      createApiError.value = t('errors.network')
+    }
   } finally {
     createSaving.value = false
   }
@@ -196,6 +205,7 @@ const editingEnrollment = ref<EducationResponse | null>(null)
 const editStatus = ref<string>('ACTIVE')
 const editLevel = ref<string>('')
 const editNote = ref('')
+const editApiError = ref('')
 const editSaving = ref(false)
 
 function openEdit(enrollment: EducationResponse) {
@@ -203,11 +213,13 @@ function openEdit(enrollment: EducationResponse) {
   editStatus.value = enrollment.status
   editLevel.value = enrollment.level ?? ''
   editNote.value = enrollment.note ?? ''
+  editApiError.value = ''
   editModalOpen.value = true
 }
 
 async function saveEdit() {
   if (!editingEnrollment.value) return
+  editApiError.value = ''
   editSaving.value = true
   try {
     const payload: UpdateEducationByTeacherRequest = {
@@ -215,13 +227,17 @@ async function saveEdit() {
       level: editLevel.value ? (editLevel.value as EducationLevel) : undefined,
       note: editNote.value || undefined,
     }
-    const res = await updateEducationByTeacher(editingEnrollment.value.id, payload)
+    const res = await updateEducationByTeacher(editingEnrollment.value.id, payload, { skipToast: true })
     const idx = enrollments.value.findIndex((e) => e.id === res.id)
     if (idx !== -1) enrollments.value[idx] = res
     toast.success(t('admin.enrollments.successUpdate'))
     editModalOpen.value = false
-  } catch {
-    /* handled by interceptor */
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.data) {
+      editApiError.value = (err.response.data as ApiError).message || t('errors.generic')
+    } else {
+      editApiError.value = t('errors.network')
+    }
   } finally {
     editSaving.value = false
   }
@@ -399,6 +415,10 @@ function statusClass(status: EducationStatus) {
       :title="t('admin.enrollments.createTitle')"
       @close="createModalOpen = false"
     >
+      <div v-if="createApiError" class="mb-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+        <Icon icon="mdi:alert-circle-outline" class="mt-0.5 h-5 w-5 shrink-0 text-rose-500" />
+        <p class="text-sm text-rose-700">{{ createApiError }}</p>
+      </div>
       <div class="space-y-4">
         <SelectField
           v-model="createStudentId"
@@ -443,6 +463,10 @@ function statusClass(status: EducationStatus) {
       :title="t('admin.enrollments.editTitle')"
       @close="editModalOpen = false"
     >
+      <div v-if="editApiError" class="mb-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+        <Icon icon="mdi:alert-circle-outline" class="mt-0.5 h-5 w-5 shrink-0 text-rose-500" />
+        <p class="text-sm text-rose-700">{{ editApiError }}</p>
+      </div>
       <div v-if="editingEnrollment" class="space-y-4">
         <div class="rounded-xl bg-slate-50 p-4 space-y-1">
           <p class="text-sm text-slate-500">

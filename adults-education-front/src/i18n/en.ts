@@ -98,6 +98,7 @@ export default {
     maxLength: 'Maximum length is {max} characters',
     cardNumber: 'Please enter 16 digits of the card number',
     cardHint: '16 digits without spaces',
+    phone: 'Please enter a valid phone number',
   },
   auth: {
     loginTitle: 'Sign in',

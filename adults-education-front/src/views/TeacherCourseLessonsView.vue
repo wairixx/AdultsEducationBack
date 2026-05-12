@@ -10,7 +10,8 @@ import AppInput from '@/components/common/AppInput.vue'
 import { useAuthStore } from '@/stores/auth'
 import { getCourseById } from '@/api/courses'
 import { getLessonsFull, createLesson, updateLesson, deleteLesson } from '@/api/lessons'
-import type { CourseResponse, LessonResponse, LessonRequest } from '@/types/api'
+import axios from 'axios'
+import type { CourseResponse, LessonResponse, LessonRequest, ApiError } from '@/types/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -26,6 +27,7 @@ const showModal = ref(false)
 const modalSubmitting = ref(false)
 const editMode = ref(false)
 const editingLessonId = ref<number | null>(null)
+const apiError = ref('')
 
 const form = ref<LessonRequest>({
   courseId: courseId,
@@ -71,6 +73,7 @@ function openCreateModal() {
   }
   editMode.value = false
   editingLessonId.value = null
+  apiError.value = ''
   showModal.value = true
 }
 
@@ -84,23 +87,29 @@ function openEditModal(lesson: LessonResponse) {
   }
   editMode.value = true
   editingLessonId.value = lesson.id
+  apiError.value = ''
   showModal.value = true
 }
 
 async function submitLesson() {
+  apiError.value = ''
   modalSubmitting.value = true
   try {
     if (editMode.value && editingLessonId.value) {
-      await updateLesson(editingLessonId.value, form.value)
+      await updateLesson(editingLessonId.value, form.value, { skipToast: true })
       toast.success(t('teacher.lessons.successUpdated'))
     } else {
-      await createLesson(form.value)
+      await createLesson(form.value, { skipToast: true })
       toast.success(t('teacher.lessons.successCreated'))
     }
     showModal.value = false
     await loadData()
-  } catch {
-    console.error('An error occurred')
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.data) {
+      apiError.value = (err.response.data as ApiError).message || t('errors.generic')
+    } else {
+      apiError.value = t('errors.network')
+    }
   } finally {
     modalSubmitting.value = false
   }
@@ -220,6 +229,11 @@ async function handleDelete(id: number) {
           </div>
           
           <form @submit.prevent="submitLesson" class="flex-1 overflow-y-auto p-6 space-y-6">
+            <div v-if="apiError" class="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+              <Icon icon="mdi:alert-circle-outline" class="mt-0.5 h-5 w-5 shrink-0 text-rose-500" />
+              <p class="text-sm text-rose-700">{{ apiError }}</p>
+            </div>
+            
             <AppInput
               v-model="form.title"
               :label="t('teacher.lessons.lessonTitle')"

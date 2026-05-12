@@ -7,7 +7,7 @@ public record CourseResponse(
         Long id, String title, String description,
         CourseTopic topic, CourseFormat format,
         BigDecimal price, Integer durationHours,
-        Long teacherId, String teacherFullName,
+        Long teacherId, String teacherFullName, String teacherAvatarUrl,
         Integer lessonsCount, Integer studentsCount,
         Double averageRating, Integer reviewsCount,
         Boolean visible,

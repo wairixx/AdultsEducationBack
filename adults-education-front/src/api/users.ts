@@ -1,4 +1,4 @@
-import { apiGet, apiPut, apiDelete } from './client'
+import { apiGet, apiPut, apiDelete, type CustomRequestConfig } from './client'
 import type { Page, UpdateUserRequest, UserFilter, UserResponse } from '@/types/api'
 
 export function getUserById(id: number): Promise<UserResponse> {
@@ -16,12 +16,12 @@ export function getAllUsers(
   })
 }
 
-export function updateUser(id: number, data: UpdateUserRequest): Promise<UserResponse> {
-  return apiPut<UserResponse>(`/api/users/${id}`, data)
+export function updateUser(id: number, data: UpdateUserRequest, config?: CustomRequestConfig): Promise<UserResponse> {
+  return apiPut<UserResponse>(`/api/users/${id}`, data, config)
 }
 
-export function deleteUser(id: number): Promise<void> {
-  return apiDelete(`/api/users/${id}`)
+export function deleteUser(id: number, config?: CustomRequestConfig): Promise<void> {
+  return apiDelete(`/api/users/${id}`, config)
 }
 
 /** Public endpoint — no auth required */

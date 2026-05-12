@@ -31,6 +31,7 @@ const profileForm = reactive({
 const originalProfile = ref('')
 const profileLoading = ref(false)
 const profileError = ref('')
+const profilePhoneError = ref('')
 
 const isDirty = computed(() => {
   return JSON.stringify(profileForm) !== originalProfile.value
@@ -87,6 +88,11 @@ watch(() => auth.user, loadProfile)
 
 async function saveProfile() {
   profileError.value = ''
+  profilePhoneError.value = ''
+  if (profileForm.phone && !/^\+?[0-9]{10,15}$/.test(profileForm.phone.replace(/[\s-()]/g, ''))) {
+    profilePhoneError.value = t('validation.phone')
+    return
+  }
   if (!profileForm.birthDate) {
     profileError.value = t('validation.required')
     return
@@ -130,7 +136,7 @@ async function saveProfile() {
       birthDate: profileForm.birthDate || undefined,
       specialization: profileForm.specialization || undefined,
       experienceYears: profileForm.experienceYears,
-    })
+    }, { skipToast: true })
     await auth.fetchMyProfile()
     originalProfile.value = JSON.stringify(profileForm)
     toast.success(t('profile.saveSuccess'))
@@ -188,7 +194,7 @@ async function savePassword() {
     await changePassword({
       currentPassword: passwordForm.currentPassword,
       newPassword: passwordForm.newPassword,
-    })
+    }, { skipToast: true })
     passwordForm.currentPassword = ''
     passwordForm.newPassword = ''
     passwordOpen.value = false
@@ -291,6 +297,7 @@ async function savePassword() {
                 type="tel"
                 icon="mdi:phone-outline"
                 placeholder="+380..."
+                :error="profilePhoneError"
               />
 
               <AppInput

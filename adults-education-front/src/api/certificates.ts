@@ -1,4 +1,4 @@
-import { apiGet } from './client'
+import { apiGet, type CustomRequestConfig } from './client'
 import apiClient from './client'
 import type { CertificateResponse } from '@/types/api'
 

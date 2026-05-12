@@ -133,8 +133,9 @@ function onEnrollSuccess(educationId: number) {
             <!-- Teacher card -->
             <div class="lg:col-span-1 flex items-center lg:justify-end">
               <div class="flex items-center gap-4 rounded-2xl bg-white/10 p-6 backdrop-blur-md ring-1 ring-white/20 transition-all hover:bg-white/15">
-                <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-slate-800 text-xl font-bold text-white shadow-inner">
-                  {{ course.teacherFullName.charAt(0).toUpperCase() }}
+                <div class="flex h-16 w-16 overflow-hidden shrink-0 items-center justify-center rounded-full bg-slate-800 text-xl font-bold text-white shadow-inner">
+                  <img v-if="course.teacherAvatarUrl" :src="course.teacherAvatarUrl" alt="" class="h-full w-full object-cover" />
+                  <span v-else>{{ course.teacherFullName.charAt(0).toUpperCase() }}</span>
                 </div>
                 <div>
                   <p class="text-sm font-medium text-slate-400">{{ t('course.teacherLabel') }}</p>

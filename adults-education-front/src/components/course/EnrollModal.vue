@@ -6,7 +6,8 @@ import { toast } from 'vue-sonner'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
 import { enroll } from '@/api/enrollments'
-import type { PaymentMethod } from '@/types/api'
+import axios from 'axios'
+import type { PaymentMethod, ApiError } from '@/types/api'
 
 const props = defineProps<{
   courseId: number
@@ -25,6 +26,7 @@ const { t } = useI18n()
 const method = ref<PaymentMethod>(props.price === 0 ? 'FREE' : 'CARD')
 const transactionRef = ref('')
 const loading = ref(false)
+const apiError = ref('')
 
 const errors = reactive({
   cardNumber: '',
@@ -91,6 +93,7 @@ const isFormValid = computed(() => {
 async function submit() {
   if (!validate()) return
 
+  apiError.value = ''
   loading.value = true
   try {
     const ref = method.value === 'CARD'
@@ -101,11 +104,15 @@ async function submit() {
       courseId: props.courseId,
       paymentMethod: method.value,
       transactionRef: method.value !== 'FREE' ? ref : undefined
-    })
+    }, { skipToast: true })
     toast.success(t('course.enrollSuccess'))
     emit('success', res.education.id)
-  } catch {
-    // Error handled by global interceptor
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.data) {
+      apiError.value = (err.response.data as ApiError).message || t('errors.generic')
+    } else {
+      apiError.value = t('errors.network')
+    }
   } finally {
     loading.value = false
   }
@@ -148,6 +155,11 @@ function onMethodChange(m: PaymentMethod) {
           <p class="text-2xl font-bold text-amber-600">
             {{ price === 0 ? t('course.free') : `${price} ${t('course.price')}` }}
           </p>
+        </div>
+
+        <div v-if="apiError" class="mt-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+          <Icon icon="mdi:alert-circle-outline" class="mt-0.5 h-5 w-5 shrink-0 text-rose-500" />
+          <p class="text-sm text-rose-700">{{ apiError }}</p>
         </div>
 
         <form @submit.prevent="submit" class="mt-6 space-y-5">

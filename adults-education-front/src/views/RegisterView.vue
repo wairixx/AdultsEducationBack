@@ -31,6 +31,7 @@ const errors = reactive({
   firstName: '',
   lastName: '',
   birthDate: '',
+  phone: '',
 })
 
 const apiError = ref('')
@@ -51,6 +52,12 @@ function validate(): boolean {
   errors.firstName = ''
   errors.lastName = ''
   errors.birthDate = ''
+  errors.phone = ''
+
+  if (form.phone && !/^\+?[0-9]{10,15}$/.test(form.phone.replace(/[\s-()]/g, ''))) {
+    errors.phone = t('validation.phone')
+    valid = false
+  }
 
   if (!form.email.trim()) {
     errors.email = t('validation.required')
@@ -253,6 +260,7 @@ async function onSubmit() {
               type="tel"
               placeholder="+380..."
               icon="mdi:phone-outline"
+              :error="errors.phone"
             />
 
             <AppInput

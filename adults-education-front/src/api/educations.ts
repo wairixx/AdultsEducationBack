@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch, apiDelete } from './client'
+import { apiGet, apiPost, apiPatch, apiDelete, type CustomRequestConfig } from './client'
 import type {
   EducationFilter,
   EducationResponse,
@@ -47,36 +47,43 @@ export function getMyEducationsAsTeacher(
 export function updateProgress(
   id: number,
   data: UpdateProgressRequest,
+  config?: CustomRequestConfig
 ): Promise<EducationResponse> {
-  return apiPatch<EducationResponse>(`/api/educations/${id}/progress`, data)
+  return apiPatch<EducationResponse>(`/api/educations/${id}/progress`, data, config)
 }
 
-export function completeCourse(id: number): Promise<EducationResponse> {
-  return apiPost<EducationResponse>(`/api/educations/${id}/complete`)
+export function completeCourse(id: number, config?: CustomRequestConfig): Promise<EducationResponse> {
+  return apiPost<EducationResponse>(`/api/educations/${id}/complete`, config)
 }
 
 export function updateEducationByTeacher(
   id: number,
   data: UpdateEducationByTeacherRequest,
+  config?: CustomRequestConfig
 ): Promise<EducationResponse> {
-  return apiPatch<EducationResponse>(`/api/educations/${id}/teacher`, data)
+  return apiPatch<EducationResponse>(`/api/educations/${id}/teacher`, data, config)
 }
 
 export function markLessonCompleted(
   educationId: number,
   lessonId: number,
+  config?: CustomRequestConfig
 ): Promise<EducationResponse> {
   return apiPost<EducationResponse>(
     `/api/educations/${educationId}/lessons/${lessonId}/complete`,
+    undefined,
+    config
   )
 }
 
 export function unmarkLessonCompleted(
   educationId: number,
   lessonId: number,
+  config?: CustomRequestConfig
 ): Promise<EducationResponse> {
   return apiDelete<EducationResponse>(
     `/api/educations/${educationId}/lessons/${lessonId}/complete`,
+    config
   )
 }
 

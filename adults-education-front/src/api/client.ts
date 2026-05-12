@@ -52,10 +52,13 @@ apiClient.interceptors.response.use(
           (error.response.data as { message?: string })?.message || 'Access denied'
         toast.error(message)
       } else if (status !== 401 && error.config?.method && error.config.method.toLowerCase() !== 'get') {
-        // Show toast for mutations (POST, PUT, PATCH, DELETE)
-        const message =
-          (error.response.data as { message?: string })?.message || 'An error occurred'
-        toast.error(message)
+        // Show toast for mutations (POST, PUT, PATCH, DELETE) unless skipToast is true
+        const skipToast = (error.config as any)?.skipToast
+        if (!skipToast) {
+          const message =
+            (error.response.data as { message?: string })?.message || 'An error occurred'
+          toast.error(message)
+        }
       }
     } else if (axios.isAxiosError(error) && !error.response) {
       toast.error('Network error or server is down')
@@ -65,8 +68,12 @@ apiClient.interceptors.response.use(
   },
 )
 
+export interface CustomRequestConfig extends AxiosRequestConfig {
+  skipToast?: boolean
+}
+
 // ── Typed helper methods ──────────────────────────────────────────────
-export async function apiGet<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
+export async function apiGet<T>(url: string, config?: CustomRequestConfig): Promise<T> {
   const response = await apiClient.get<T>(url, config)
   return response.data
 }
@@ -74,7 +81,7 @@ export async function apiGet<T>(url: string, config?: AxiosRequestConfig): Promi
 export async function apiPost<T>(
   url: string,
   data?: unknown,
-  config?: AxiosRequestConfig,
+  config?: CustomRequestConfig,
 ): Promise<T> {
   const response = await apiClient.post<T>(url, data, config)
   return response.data
@@ -83,7 +90,7 @@ export async function apiPost<T>(
 export async function apiPut<T>(
   url: string,
   data?: unknown,
-  config?: AxiosRequestConfig,
+  config?: CustomRequestConfig,
 ): Promise<T> {
   const response = await apiClient.put<T>(url, data, config)
   return response.data
@@ -92,7 +99,7 @@ export async function apiPut<T>(
 export async function apiPatch<T>(
   url: string,
   data?: unknown,
-  config?: AxiosRequestConfig,
+  config?: CustomRequestConfig,
 ): Promise<T> {
   const response = await apiClient.patch<T>(url, data, config)
   return response.data
@@ -100,7 +107,7 @@ export async function apiPatch<T>(
 
 export async function apiDelete<T = void>(
   url: string,
-  config?: AxiosRequestConfig,
+  config?: CustomRequestConfig,
 ): Promise<T> {
   const response = await apiClient.delete<T>(url, config)
   return response.data

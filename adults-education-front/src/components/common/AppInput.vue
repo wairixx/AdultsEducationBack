@@ -36,9 +36,42 @@ const emit = defineEmits<{
 const showPassword = ref(false)
 const isPasswordType = props.type === 'password'
 
+function formatPhoneInput(value: string): string {
+  if (!value.trim()) return ''
+
+  let digits = value.replace(/\D/g, '')
+  if (!digits) return value.includes('+') ? '+' : ''
+
+  if (digits.startsWith('380')) {
+    digits = digits.slice(0, 12)
+    let res = '+380'
+    if (digits.length > 3) res += ' (' + digits.substring(3, 5)
+    if (digits.length > 5) res += ') ' + digits.substring(5, 8)
+    if (digits.length > 8) res += '-' + digits.substring(8, 10)
+    if (digits.length > 10) res += '-' + digits.substring(10, 12)
+    return res
+  } else if (digits.length > 0 && (digits.startsWith('0') || digits.length <= 9)) {
+    if (digits.startsWith('0')) {
+      digits = '38' + digits
+    } else {
+      digits = '380' + digits
+    }
+    return formatPhoneInput('+' + digits)
+  } else {
+    return '+' + digits.slice(0, 15)
+  }
+}
+
 function onInput(e: Event) {
   const target = e.target as HTMLInputElement
-  emit('update:modelValue', props.type === 'number' ? Number(target.value) : target.value)
+  let val = target.value
+
+  if (props.type === 'tel') {
+    val = formatPhoneInput(val)
+    target.value = val
+  }
+
+  emit('update:modelValue', props.type === 'number' ? Number(val) : val)
 }
 </script>
 
@@ -55,7 +88,7 @@ function onInput(e: Event) {
       <input
         :type="isPasswordType && !showPassword ? 'password' : isPasswordType ? 'text' : type"
         :value="modelValue"
-        :placeholder="placeholder"
+        :placeholder="type === 'tel' ? '+380 (XX) XXX-XX-XX' : placeholder"
         :required="required"
         :disabled="disabled"
         :min="min"

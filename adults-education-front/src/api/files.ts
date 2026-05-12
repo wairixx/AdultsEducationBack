@@ -1,4 +1,4 @@
-import { apiPost } from './client'
+import { apiPost, type CustomRequestConfig } from './client'
 import type { FileUploadResponse } from '@/types/api'
 
 export function uploadAvatar(file: File): Promise<FileUploadResponse> {

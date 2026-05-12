@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 import axios from 'axios'
-import type { ReviewResponse } from '@/types/api'
+import type { ReviewResponse, ApiError } from '@/types/api'
 import { getAllReviews, createReview, deleteReview } from '@/api/reviews'
 import { getMyEducationsAsStudent } from '@/api/educations'
 import { useAuthStore } from '@/stores/auth'
@@ -38,6 +38,7 @@ const canLeaveReview = computed(() => isEnrolled.value && !hasReviewed.value)
 const newReview = ref({ rating: 0, comment: '' })
 const submitting = ref(false)
 const deletingId = ref<number | null>(null)
+const createApiError = ref('')
 
 async function loadReviews(page = 0) {
   loading.value = true
@@ -87,21 +88,26 @@ async function submitReview() {
     return
   }
 
+  createApiError.value = ''
   submitting.value = true
   try {
     await createReview({
       courseId: props.courseId,
       rating: newReview.value.rating,
       comment: newReview.value.comment || undefined,
-    })
+    }, { skipToast: true })
     toast.success(t('reviews.success'))
     newReview.value = { rating: 0, comment: '' }
     hasReviewed.value = true
     emit('reviewAdded')
     await loadReviews(0)
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 409) {
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.status === 409) {
       hasReviewed.value = true
+    } else if (axios.isAxiosError(err) && err.response?.data) {
+      createApiError.value = (err.response.data as ApiError).message || t('errors.generic')
+    } else {
+      createApiError.value = t('errors.network')
     }
   } finally {
     submitting.value = false
@@ -136,6 +142,10 @@ async function removeReview(id: number) {
     >
       <h3 class="mb-4 text-lg font-semibold text-slate-900">{{ t('reviews.leaveReview') }}</h3>
       <form @submit.prevent="submitReview" class="space-y-4">
+        <div v-if="createApiError" class="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+          <Icon icon="mdi:alert-circle-outline" class="mt-0.5 h-5 w-5 shrink-0 text-rose-500" />
+          <p class="text-sm text-rose-700">{{ createApiError }}</p>
+        </div>
         <div>
           <label class="mb-2 block text-sm font-medium text-slate-700">{{ t('reviews.rating') }}</label>
           <StarRating v-model="newReview.rating" size="lg" />

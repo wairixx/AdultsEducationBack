@@ -57,14 +57,14 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // ── Actions ───────────────────────────────────────────────────────
-  async function login(credentials: AuthRequest) {
-    const response = await apiLogin(credentials)
+  async function login(credentials: AuthRequest, skipToast = true) {
+    const response = await apiLogin(credentials, { skipToast })
     persistAuth(response)
     await fetchMyProfile()
   }
 
-  async function register(data: RegisterRequest) {
-    const response = await apiRegister(data)
+  async function register(data: RegisterRequest, skipToast = true) {
+    const response = await apiRegister(data, { skipToast })
     persistAuth(response)
     await fetchMyProfile()
   }

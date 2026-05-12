@@ -1,4 +1,4 @@
-import { apiGet } from './client'
+import { apiGet, type CustomRequestConfig } from './client'
 
 export interface PublicStats {
   coursesCount: number

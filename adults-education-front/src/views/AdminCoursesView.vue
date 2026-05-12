@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Icon } from '@iconify/vue'
 import { toast } from 'vue-sonner'
+import axios from 'axios'
 import DataTable from '@/components/admin/DataTable.vue'
 import ConfirmDialog from '@/components/admin/ConfirmDialog.vue'
 import EditModal from '@/components/admin/EditModal.vue'
@@ -19,7 +20,8 @@ import {
   updateCourse,
   createCourse,
 } from '@/api/courses'
-import type { CourseResponse, CourseTopic, CourseFormat, CourseRequest, UserResponse } from '@/types/api'
+import { uploadCourseImage } from '@/api/files'
+import type { CourseResponse, CourseTopic, CourseFormat, CourseRequest, UserResponse, ApiError } from '@/types/api'
 import { getAllUsers } from '@/api/users'
 
 const router = useRouter()
@@ -139,6 +141,7 @@ async function toggleVisible(course: CourseResponse) {
 // ── Create Modal ──────────────────────────────────────────────────────
 const createModalOpen = ref(false)
 const createSaving = ref(false)
+const createApiError = ref('')
 const createForm = ref<CourseRequest>({
   title: '',
   description: '',
@@ -164,10 +167,12 @@ function openCreate() {
   createTopic.value = 'PROGRAMMING'
   createFormat.value = 'ONLINE'
   createTeacherId.value = teacherOptions.value.length > 0 ? String(teacherOptions.value[0]?.value) : ''
+  createApiError.value = ''
   createModalOpen.value = true
 }
 
 async function saveCreate() {
+  createApiError.value = ''
   createSaving.value = true
   try {
     await createCourse({
@@ -175,12 +180,16 @@ async function saveCreate() {
       topic: createTopic.value as CourseTopic,
       format: createFormat.value as CourseFormat,
       teacherId: createTeacherId.value ? Number(createTeacherId.value) : undefined,
-    })
+    }, { skipToast: true })
     toast.success(t('admin.courses.successCreate'))
     createModalOpen.value = false
     loadData()
-  } catch {
-    /* handled by interceptor */
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.data) {
+      createApiError.value = (err.response.data as ApiError).message || t('errors.generic')
+    } else {
+      createApiError.value = t('errors.network')
+    }
   } finally {
     createSaving.value = false
   }
@@ -197,6 +206,7 @@ const editForm = ref<CourseRequest>({
   price: 0,
   durationHours: 0,
 })
+const editApiError = ref('')
 const editSaving = ref(false)
 
 function openEdit(course: CourseResponse) {
@@ -210,20 +220,26 @@ function openEdit(course: CourseResponse) {
     durationHours: course.durationHours,
     coverUrl: course.coverUrl,
   }
+  editApiError.value = ''
   editModalOpen.value = true
 }
 
 async function saveEdit() {
   if (!editingCourse.value) return
+  editApiError.value = ''
   editSaving.value = true
   try {
-    const res = await updateCourse(editingCourse.value.id, editForm.value)
+    const res = await updateCourse(editingCourse.value.id, editForm.value, { skipToast: true })
     const idx = courses.value.findIndex((c) => c.id === res.id)
     if (idx !== -1) courses.value[idx] = res
     toast.success(t('admin.courses.successEditSave'))
     editModalOpen.value = false
-  } catch {
-    /* handled by interceptor */
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.data) {
+      editApiError.value = (err.response.data as ApiError).message || t('errors.generic')
+    } else {
+      editApiError.value = t('errors.network')
+    }
   } finally {
     editSaving.value = false
   }
@@ -233,6 +249,34 @@ async function saveEdit() {
 const confirmOpen = ref(false)
 const courseToDelete = ref<number | null>(null)
 const deleteLoading = ref(false)
+
+const imageUploading = ref(false)
+
+async function handleImageUpload(e: Event, formRef: CourseRequest) {
+  const target = e.target as HTMLInputElement
+  if (!target.files?.length) return
+  const file = target.files[0]
+  if (!file) return
+  
+  if (!file.type.startsWith('image/')) {
+    toast.error('Only images are allowed')
+    return
+  }
+  
+  imageUploading.value = true
+  try {
+    const res = await uploadCourseImage(file)
+    formRef.coverUrl = res.url
+  } catch {
+    toast.error('Error uploading image')
+  } finally {
+    imageUploading.value = false
+  }
+}
+
+function removeCover(formRef: CourseRequest) {
+  formRef.coverUrl = ''
+}
 
 function openDelete(id: number) {
   courseToDelete.value = id
@@ -306,6 +350,16 @@ async function executeDelete() {
             </p>
             <p class="text-xs text-slate-400">{{ item.durationHours }} {{ t('course.hours') }}</p>
           </div>
+        </div>
+      </template>
+
+      <template #col-teacherFullName="{ item }">
+        <div class="flex items-center gap-2">
+          <div class="flex h-6 w-6 overflow-hidden items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
+            <img v-if="item.teacherAvatarUrl" :src="item.teacherAvatarUrl" alt="" class="h-full w-full object-cover" />
+            <span v-else>{{ item.teacherFullName.charAt(0).toUpperCase() }}</span>
+          </div>
+          <span class="text-sm text-slate-700">{{ item.teacherFullName }}</span>
         </div>
       </template>
 
@@ -411,6 +465,10 @@ async function executeDelete() {
       :title="t('admin.courses.createTitle')"
       @close="createModalOpen = false"
     >
+      <div v-if="createApiError" class="mb-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+        <Icon icon="mdi:alert-circle-outline" class="mt-0.5 h-5 w-5 shrink-0 text-rose-500" />
+        <p class="text-sm text-rose-700">{{ createApiError }}</p>
+      </div>
       <div class="space-y-4">
         <AppInput v-model="createForm.title" :label="t('teacher.courseForm.title')" required />
         <div>
@@ -447,7 +505,30 @@ async function executeDelete() {
             type="number"
           />
         </div>
-        <AppInput v-model="createForm.coverUrl" :label="t('admin.courses.coverUrl')" />
+        
+        <div class="relative w-full aspect-video bg-slate-100 group rounded-xl overflow-hidden mt-4">
+          <img v-if="createForm.coverUrl" :src="createForm.coverUrl" alt="Course cover" class="w-full h-full object-cover" />
+          <div v-else class="w-full h-full flex flex-col items-center justify-center text-slate-400">
+            <Icon icon="mdi:image-plus" class="h-10 w-10 mb-2" />
+            <span class="text-xs font-medium">{{ t('teacher.courseForm.coverImage') }}</span>
+          </div>
+          
+          <label class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white font-medium">
+            <Icon v-if="imageUploading" icon="mdi:loading" class="h-8 w-8 animate-spin" />
+            <span v-else class="flex items-center text-sm"><Icon icon="mdi:upload" class="mr-2 h-5 w-5" /> Завантажити фото</span>
+            <input type="file" class="hidden" accept="image/*" @change="(e) => handleImageUpload(e, createForm)" :disabled="imageUploading" />
+          </label>
+          <button
+            v-if="createForm.coverUrl"
+            type="button"
+            class="absolute right-3 top-3 inline-flex items-center rounded-lg bg-rose-500/90 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-rose-600"
+            @click="removeCover(createForm)"
+          >
+            <Icon icon="mdi:delete-outline" class="mr-1 h-4 w-4" />
+            {{ t('actions.delete') }}
+          </button>
+        </div>
+
         <SelectField
           v-model="createTeacherId"
           :label="t('admin.courses.teacher')"
@@ -470,6 +551,10 @@ async function executeDelete() {
       :title="t('admin.courses.editTitle')"
       @close="editModalOpen = false"
     >
+      <div v-if="editApiError" class="mb-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+        <Icon icon="mdi:alert-circle-outline" class="mt-0.5 h-5 w-5 shrink-0 text-rose-500" />
+        <p class="text-sm text-rose-700">{{ editApiError }}</p>
+      </div>
       <div v-if="editingCourse" class="space-y-4">
         <AppInput v-model="editForm.title" :label="t('teacher.courseForm.title')" />
         <div>
@@ -506,7 +591,29 @@ async function executeDelete() {
             type="number"
           />
         </div>
-        <AppInput v-model="editForm.coverUrl" :label="t('admin.courses.coverUrl')" />
+        
+        <div class="relative w-full aspect-video bg-slate-100 group rounded-xl overflow-hidden mt-4">
+          <img v-if="editForm.coverUrl" :src="editForm.coverUrl" alt="Course cover" class="w-full h-full object-cover" />
+          <div v-else class="w-full h-full flex flex-col items-center justify-center text-slate-400">
+            <Icon icon="mdi:image-plus" class="h-10 w-10 mb-2" />
+            <span class="text-xs font-medium">{{ t('teacher.courseForm.coverImage') }}</span>
+          </div>
+          
+          <label class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white font-medium">
+            <Icon v-if="imageUploading" icon="mdi:loading" class="h-8 w-8 animate-spin" />
+            <span v-else class="flex items-center text-sm"><Icon icon="mdi:upload" class="mr-2 h-5 w-5" /> Завантажити фото</span>
+            <input type="file" class="hidden" accept="image/*" @change="(e) => handleImageUpload(e, editForm)" :disabled="imageUploading" />
+          </label>
+          <button
+            v-if="editForm.coverUrl"
+            type="button"
+            class="absolute right-3 top-3 inline-flex items-center rounded-lg bg-rose-500/90 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-rose-600"
+            @click="removeCover(editForm)"
+          >
+            <Icon icon="mdi:delete-outline" class="mr-1 h-4 w-4" />
+            {{ t('actions.delete') }}
+          </button>
+        </div>
       </div>
       <template #footer>
         <AppButton variant="ghost" @click="editModalOpen = false">

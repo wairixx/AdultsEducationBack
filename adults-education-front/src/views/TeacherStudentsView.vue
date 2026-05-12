@@ -10,7 +10,8 @@ import SelectField from '@/components/common/SelectField.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import { getMyEducationsAsTeacher, updateEducationByTeacher } from '@/api/educations'
 import { getMyCoursesAsTeacher } from '@/api/courses'
-import type { EducationResponse, EducationStatus, EducationLevel } from '@/types/api'
+import axios from 'axios'
+import type { EducationResponse, EducationStatus, EducationLevel, ApiError } from '@/types/api'
 
 
 const { t } = useI18n()
@@ -94,6 +95,7 @@ const modalSubmitting = ref(false)
 const editStatus = ref<EducationStatus>('ACTIVE')
 const editLevel = ref<EducationLevel>('BEGINNER')
 const editNote = ref('')
+const editApiError = ref('')
 
 const statusOptions = [
   { value: 'PENDING', label: t('statuses.PENDING') },
@@ -114,18 +116,20 @@ function openModal(student: EducationResponse) {
   editStatus.value = student.status
   editLevel.value = student.level || 'BEGINNER'
   editNote.value = student.note || ''
+  editApiError.value = ''
   showModal.value = true
 }
 
 async function saveStudentUpdates() {
   if (!selectedStudent.value) return
+  editApiError.value = ''
   modalSubmitting.value = true
   try {
     const res = await updateEducationByTeacher(selectedStudent.value.id, {
       status: editStatus.value,
       level: editLevel.value,
       note: editNote.value
-    })
+    }, { skipToast: true })
     
     // Update local state
     const idx = students.value.findIndex(s => s.id === res.id)
@@ -134,8 +138,12 @@ async function saveStudentUpdates() {
     }
     toast.success(t('teacher.students.updateSuccess'))
     showModal.value = false
-  } catch {
-    console.error('An error occurred')
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.data) {
+      editApiError.value = (err.response.data as ApiError).message || t('errors.generic')
+    } else {
+      editApiError.value = t('errors.network')
+    }
   } finally {
     modalSubmitting.value = false
   }
@@ -290,6 +298,10 @@ async function saveStudentUpdates() {
           </div>
           
           <form @submit.prevent="saveStudentUpdates" class="p-6 space-y-5">
+            <div v-if="editApiError" class="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+              <Icon icon="mdi:alert-circle-outline" class="mt-0.5 h-5 w-5 shrink-0 text-rose-500" />
+              <p class="text-sm text-rose-700">{{ editApiError }}</p>
+            </div>
             <div class="grid grid-cols-2 gap-4">
               <SelectField
                 v-model="editStatus"

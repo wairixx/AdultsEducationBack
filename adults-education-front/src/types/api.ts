@@ -118,6 +118,7 @@ export interface CourseResponse {
   coverUrl?: string
   teacherId: number
   teacherFullName: string
+  teacherAvatarUrl?: string
   lessonsCount: number
   studentsCount: number
   averageRating: number

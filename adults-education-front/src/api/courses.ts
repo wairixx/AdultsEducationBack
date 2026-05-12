@@ -1,8 +1,8 @@
-import { apiGet, apiPost, apiPut, apiPatch, apiDelete } from './client'
+import { apiGet, apiPost, apiPut, apiPatch, apiDelete, type CustomRequestConfig } from './client'
 import type { CourseFilter, CourseRequest, CourseResponse, Page } from '@/types/api'
 
-export function createCourse(data: CourseRequest): Promise<CourseResponse> {
-  return apiPost<CourseResponse>('/api/courses', data)
+export function createCourse(data: CourseRequest, config?: CustomRequestConfig): Promise<CourseResponse> {
+  return apiPost<CourseResponse>('/api/courses', data, config)
 }
 
 export function getCourseById(id: number): Promise<CourseResponse> {
@@ -42,19 +42,21 @@ export function getMyCoursesAsTeacher(
   })
 }
 
-export function updateCourse(id: number, data: CourseRequest): Promise<CourseResponse> {
-  return apiPut<CourseResponse>(`/api/courses/${id}`, data)
+export function updateCourse(id: number, data: CourseRequest, config?: CustomRequestConfig): Promise<CourseResponse> {
+  return apiPut<CourseResponse>(`/api/courses/${id}`, data, config)
 }
 
-export function deleteCourse(id: number): Promise<void> {
-  return apiDelete(`/api/courses/${id}`)
+export function deleteCourse(id: number, config?: CustomRequestConfig): Promise<void> {
+  return apiDelete(`/api/courses/${id}`, config)
 }
 
 export function setCourseVisibility(
   id: number,
   visible: boolean,
+  config?: CustomRequestConfig
 ): Promise<CourseResponse> {
   return apiPatch<CourseResponse>(`/api/courses/${id}/visibility`, null, {
     params: { visible },
+    ...config
   })
 }

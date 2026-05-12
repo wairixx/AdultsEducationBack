@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Icon } from '@iconify/vue'
 import { toast } from 'vue-sonner'
+import axios from 'axios'
 import DefaultLayout from '@/components/layout/DefaultLayout.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
@@ -12,7 +13,7 @@ import SkeletonLoader from '@/components/common/SkeletonLoader.vue'
 import { createCourse, getCourseById, updateCourse, setCourseVisibility } from '@/api/courses'
 import { uploadCourseImage } from '@/api/files'
 import { useAuthStore } from '@/stores/auth'
-import type { CourseRequest } from '@/types/api'
+import type { CourseRequest, ApiError } from '@/types/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -26,6 +27,7 @@ const isAdminContext = computed(() => route.path.startsWith('/admin'))
 const loading = ref(isEditing.value)
 const submitting = ref(false)
 const imageUploading = ref(false)
+const formApiError = ref('')
 
 const form = ref<CourseRequest>({
   title: '',
@@ -110,19 +112,24 @@ function removeCover() {
 }
 
 async function submit() {
+  formApiError.value = ''
   submitting.value = true
   try {
     if (isEditing.value) {
-      await updateCourse(courseId.value, form.value)
-      await setCourseVisibility(courseId.value, isVisible.value)
+      await updateCourse(courseId.value, form.value, { skipToast: true })
+      await setCourseVisibility(courseId.value, isVisible.value, { skipToast: true })
       toast.success(t('teacher.courseForm.successUpdated'))
     } else {
-      await createCourse(form.value)
+      await createCourse(form.value, { skipToast: true })
       toast.success(t('teacher.courseForm.successCreated'))
     }
     router.push(isAdminContext.value ? '/admin/courses' : '/dashboard')
-  } catch {
-    console.error('An error occurred')
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.data) {
+      formApiError.value = (err.response.data as ApiError).message || t('errors.generic')
+    } else {
+      formApiError.value = t('errors.network')
+    }
   } finally {
     submitting.value = false
   }
@@ -150,6 +157,11 @@ async function submit() {
 
         <form v-else @submit.prevent="submit" class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 overflow-hidden">
           
+          <div v-if="formApiError" class="mx-6 mt-6 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+            <Icon icon="mdi:alert-circle-outline" class="mt-0.5 h-5 w-5 shrink-0 text-rose-500" />
+            <p class="text-sm text-rose-700">{{ formApiError }}</p>
+          </div>
+
           <!-- Image upload -->
           <div class="relative w-full aspect-video bg-slate-100 group">
             <img v-if="form.coverUrl" :src="form.coverUrl" alt="Course cover" class="w-full h-full object-cover" />

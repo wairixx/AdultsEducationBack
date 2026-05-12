@@ -12,9 +12,10 @@ import AppInput from '@/components/common/AppInput.vue'
 import SearchInput from '@/components/common/SearchInput.vue'
 import SelectField from '@/components/common/SelectField.vue'
 import AppPagination from '@/components/common/AppPagination.vue'
+import AvatarUpload from '@/components/common/AvatarUpload.vue'
 import { getAllUsers, updateUser, deleteUser } from '@/api/users'
 import { register } from '@/api/auth'
-import type { UserResponse, Role, UpdateUserRequest, RegisterRequest } from '@/types/api'
+import type { UserResponse, Role, UpdateUserRequest, RegisterRequest, ApiError } from '@/types/api'
 
 const { t } = useI18n()
 
@@ -121,8 +122,11 @@ const createForm = ref<RegisterRequest>({
   phone: '',
   birthDate: '',
   role: 'STUDENT',
+  avatarUrl: '',
 })
 const createRole = ref('STUDENT')
+const createPhoneError = ref('')
+const createApiError = ref('')
 const createTeacherForm = ref({
   specialization: '',
   experienceYears: undefined as number | undefined,
@@ -136,33 +140,45 @@ function openCreate() {
     lastName: '',
     phone: '',
     birthDate: '',
+    avatarUrl: '',
   }
   createRole.value = 'STUDENT'
   createTeacherForm.value = {
     specialization: '',
     experienceYears: undefined,
   }
+  createPhoneError.value = ''
   createModalOpen.value = true
 }
 
 async function saveCreate() {
+  createPhoneError.value = ''
+  createApiError.value = ''
+  if (createForm.value.phone && !/^\+?[0-9]{10,15}$/.test(createForm.value.phone.replace(/[\s-()]/g, ''))) {
+    createPhoneError.value = t('validation.phone')
+    return
+  }
   createSaving.value = true
   try {
     const authResponse = await register({
       ...createForm.value,
       role: createRole.value as Role,
-    })
+    }, { skipToast: true })
     if (createRole.value === 'TEACHER') {
       await updateUser(authResponse.userId, {
         specialization: createTeacherForm.value.specialization || undefined,
         experienceYears: createTeacherForm.value.experienceYears,
-      })
+      }, { skipToast: true })
     }
     toast.success(t('admin.users.successCreate'))
     createModalOpen.value = false
     loadData()
-  } catch {
-    /* handled by interceptor */
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.data) {
+      createApiError.value = (err.response.data as ApiError).message || t('errors.generic')
+    } else {
+      createApiError.value = t('errors.network')
+    }
   } finally {
     createSaving.value = false
   }
@@ -174,6 +190,8 @@ const editingUser = ref<UserResponse | null>(null)
 const editForm = ref<UpdateUserRequest>({})
 const editRole = ref<string>('STUDENT')
 const editActive = ref<string>('true')
+const editPhoneError = ref('')
+const editApiError = ref('')
 const editSaving = ref(false)
 
 function openEdit(user: UserResponse) {
@@ -187,14 +205,22 @@ function openEdit(user: UserResponse) {
     birthDate: user.birthDate ?? '',
     specialization: user.specialization ?? '',
     experienceYears: user.experienceYears ?? undefined,
+    avatarUrl: user.avatarUrl ?? '',
   }
   editRole.value = user.role
   editActive.value = String(user.active)
+  editPhoneError.value = ''
   editModalOpen.value = true
 }
 
 async function saveEdit() {
   if (!editingUser.value) return
+  editPhoneError.value = ''
+  editApiError.value = ''
+  if (editForm.value.phone && !/^\+?[0-9]{10,15}$/.test(editForm.value.phone.replace(/[\s-()]/g, ''))) {
+    editPhoneError.value = t('validation.phone')
+    return
+  }
   editSaving.value = true
   try {
     const payload: UpdateUserRequest = {
@@ -206,14 +232,18 @@ async function saveEdit() {
       payload.specialization = undefined
       payload.experienceYears = undefined
     }
-    const res = await updateUser(editingUser.value.id, payload)
+    const res = await updateUser(editingUser.value.id, payload, { skipToast: true })
     const idx = users.value.findIndex((u) => u.id === res.id)
     if (idx !== -1) users.value[idx] = res
     await loadData()
     toast.success(t('admin.users.successUpdate'))
     editModalOpen.value = false
-  } catch {
-    /* handled by interceptor */
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.data) {
+      editApiError.value = (err.response.data as ApiError).message || t('errors.generic')
+    } else {
+      editApiError.value = t('errors.network')
+    }
   } finally {
     editSaving.value = false
   }
@@ -403,7 +433,14 @@ function roleBadgeClass(role: Role) {
       :title="t('admin.users.createTitle')"
       @close="createModalOpen = false"
     >
+      <div v-if="createApiError" class="mb-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+        <Icon icon="mdi:alert-circle-outline" class="mt-0.5 h-5 w-5 shrink-0 text-rose-500" />
+        <p class="text-sm text-rose-700">{{ createApiError }}</p>
+      </div>
       <div class="space-y-4">
+        <div class="flex justify-center pb-2">
+          <AvatarUpload v-model="createForm.avatarUrl" :initials="createForm.firstName?.charAt(0) || '?'" />
+        </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <AppInput v-model="createForm.firstName" :label="t('form.firstName')" required />
           <AppInput v-model="createForm.lastName" :label="t('form.lastName')" required />
@@ -421,7 +458,7 @@ function roleBadgeClass(role: Role) {
           :hint="t('validation.passwordHint')"
           required
         />
-        <AppInput v-model="createForm.phone" :label="t('form.phone')" />
+        <AppInput v-model="createForm.phone" :label="t('form.phone')" type="tel" :error="createPhoneError" />
         <AppInput
           v-model="createForm.birthDate"
           :label="t('form.birthDate')"
@@ -465,13 +502,20 @@ function roleBadgeClass(role: Role) {
       :title="t('admin.users.editTitle')"
       @close="editModalOpen = false"
     >
+      <div v-if="editApiError" class="mb-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+        <Icon icon="mdi:alert-circle-outline" class="mt-0.5 h-5 w-5 shrink-0 text-rose-500" />
+        <p class="text-sm text-rose-700">{{ editApiError }}</p>
+      </div>
       <div v-if="editingUser" class="space-y-4">
+        <div class="flex justify-center pb-2">
+          <AvatarUpload v-model="editForm.avatarUrl" :initials="editForm.firstName?.charAt(0) || '?'" />
+        </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <AppInput v-model="editForm.firstName" :label="t('form.firstName')" />
           <AppInput v-model="editForm.lastName" :label="t('form.lastName')" />
         </div>
         <AppInput v-model="editForm.email" :label="t('form.email')" type="email" />
-        <AppInput v-model="editForm.phone" :label="t('form.phone')" />
+        <AppInput v-model="editForm.phone" :label="t('form.phone')" type="tel" :error="editPhoneError" />
         <AppInput
           v-model="editForm.birthDate"
           :label="t('form.birthDate')"

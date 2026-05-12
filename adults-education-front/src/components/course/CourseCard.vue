@@ -52,8 +52,9 @@ const { t } = useI18n()
         <!-- Teacher & Rating -->
         <div class="flex items-center justify-between border-b border-slate-100 pb-4">
           <div class="flex items-center gap-2">
-            <div class="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
-              {{ course.teacherFullName.charAt(0).toUpperCase() }}
+            <div class="flex h-6 w-6 overflow-hidden items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
+              <img v-if="course.teacherAvatarUrl" :src="course.teacherAvatarUrl" alt="" class="h-full w-full object-cover" />
+              <span v-else>{{ course.teacherFullName.charAt(0).toUpperCase() }}</span>
             </div>
             <span class="text-xs font-medium text-slate-600">{{ course.teacherFullName }}</span>
           </div>

@@ -3,6 +3,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Icon } from '@iconify/vue'
 import { toast } from 'vue-sonner'
+import axios from 'axios'
 import DataTable from '@/components/admin/DataTable.vue'
 import ConfirmDialog from '@/components/admin/ConfirmDialog.vue'
 import EditModal from '@/components/admin/EditModal.vue'
@@ -13,7 +14,7 @@ import SelectField from '@/components/common/SelectField.vue'
 import { getAllReviewsForAdmin, setReviewVisibility, deleteReview, createReview } from '@/api/reviews'
 import { getAllCoursesForAdmin } from '@/api/courses'
 import { getAllUsers } from '@/api/users'
-import type { ReviewResponse, CourseResponse, UserResponse } from '@/types/api'
+import type { ReviewResponse, CourseResponse, UserResponse, ApiError } from '@/types/api'
 
 const { t } = useI18n()
 
@@ -162,6 +163,7 @@ const createCourseId = ref<string>('')
 const createStudentId = ref<string>('')
 const createRating = ref<string>('5')
 const createComment = ref('')
+const createApiError = ref('')
 
 function openCreate() {
   toast.error(t('admin.reviews.createForbidden'))
@@ -170,10 +172,12 @@ function openCreate() {
   createStudentId.value = studentOptions.value.length > 0 ? String(studentOptions.value[0]?.value) : ''
   createRating.value = '5'
   createComment.value = ''
+  createApiError.value = ''
   createModalOpen.value = true
 }
 
 async function saveCreate() {
+  createApiError.value = ''
   if (!createCourseId.value) {
     toast.error(t('admin.reviews.selectCourseRequired'))
     return
@@ -185,12 +189,16 @@ async function saveCreate() {
       rating: Number(createRating.value),
       comment: createComment.value || undefined,
       studentId: createStudentId.value ? Number(createStudentId.value) : undefined,
-    })
+    }, { skipToast: true })
     toast.success(t('admin.reviews.successCreate'))
     createModalOpen.value = false
     loadData()
-  } catch {
-    /* handled by interceptor */
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.data) {
+      createApiError.value = (err.response.data as ApiError).message || t('errors.generic')
+    } else {
+      createApiError.value = t('errors.network')
+    }
   } finally {
     createSaving.value = false
   }
@@ -337,6 +345,10 @@ function renderStars(rating: number) {
       :title="t('admin.reviews.createTitle')"
       @close="createModalOpen = false"
     >
+      <div v-if="createApiError" class="mb-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+        <Icon icon="mdi:alert-circle-outline" class="mt-0.5 h-5 w-5 shrink-0 text-rose-500" />
+        <p class="text-sm text-rose-700">{{ createApiError }}</p>
+      </div>
       <div class="space-y-4">
         <SelectField
           v-model="createStudentId"

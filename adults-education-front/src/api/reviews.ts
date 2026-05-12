@@ -1,8 +1,8 @@
-import { apiGet, apiPost, apiPatch, apiDelete } from './client'
+import { apiGet, apiPost, apiPatch, apiDelete, type CustomRequestConfig } from './client'
 import type { Page, ReviewFilter, ReviewRequest, ReviewResponse } from '@/types/api'
 
-export function createReview(data: ReviewRequest): Promise<ReviewResponse> {
-  return apiPost<ReviewResponse>('/api/reviews', data)
+export function createReview(data: ReviewRequest, config?: CustomRequestConfig): Promise<ReviewResponse> {
+  return apiPost<ReviewResponse>('/api/reviews', data, config)
 }
 
 export function getReviewById(id: number): Promise<ReviewResponse> {
@@ -31,15 +31,17 @@ export function getAllReviewsForAdmin(
   })
 }
 
-export function deleteReview(id: number): Promise<void> {
-  return apiDelete(`/api/reviews/${id}`)
+export function deleteReview(id: number, config?: CustomRequestConfig): Promise<void> {
+  return apiDelete(`/api/reviews/${id}`, config)
 }
 
 export function setReviewVisibility(
   id: number,
   visible: boolean,
+  config?: CustomRequestConfig
 ): Promise<ReviewResponse> {
   return apiPatch<ReviewResponse>(`/api/reviews/${id}/visibility`, null, {
     params: { visible },
+    ...config
   })
 }

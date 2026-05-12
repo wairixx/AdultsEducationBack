@@ -33,6 +33,7 @@ public class CourseMapper {
                 c.getPrice(), c.getDurationHours(),
                 c.getTeacher().getId(),
                 NameUtils.fullName(c.getTeacher().getLastName(), c.getTeacher().getFirstName()),
+                c.getTeacher().getAvatarUrl(),
                 (int) lessons, (int) students,
                 Math.round(avg * 10.0) / 10.0, reviews.size(),
                 c.getVisible(),
